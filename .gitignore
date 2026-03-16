@@ -3,4 +3,4 @@ out/
 .vscode/
 .idea/
 *.iml
-*.claude
+*.claude/ 

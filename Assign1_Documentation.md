@@ -8,10 +8,9 @@
 |-------|-------|
 | Course | Distributed Systems — Winter 2026 |
 | Assignment | Assignment 1: Multiplayer Trivia Game |
-| Group Number | |
-| Student 1 ID | |
-| Student 2 ID | |
-| Submission Date | March 17, 2026 |
+| Group Number | G7 |
+| Student 1 ID | 20226131 |
+| Student 2 ID | 20226023 |
 
 ---
 
