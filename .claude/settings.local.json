@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(JAVAC=\"/home/mariam/.vscode/extensions/redhat.java-1.53.0-linux-x64/jre/21.0.10-linux-x86_64/bin/javac\")",
+      "Bash(\"$JAVAC\" -cp \"lib/gson-2.10.1.jar\" -d out server/*.java)"
+    ]
+  }
+}

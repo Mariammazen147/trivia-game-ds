@@ -1,0 +1,34 @@
+{
+  "mariam": [
+    {
+      "date": "2026-03-16",
+      "mode": "solo",
+      "score": 150,
+      "totalQuestions": 2,
+      "correctAnswers": 1
+    }
+  ],
+  "alice": [
+    {
+      "date": "2026-03-16",
+      "mode": "solo",
+      "score": 0,
+      "totalQuestions": 1,
+      "correctAnswers": 0
+    },
+    {
+      "date": "2026-03-16",
+      "mode": "solo",
+      "score": 0,
+      "totalQuestions": 1,
+      "correctAnswers": 0
+    },
+    {
+      "date": "2026-03-16",
+      "mode": "solo",
+      "score": 0,
+      "totalQuestions": 1,
+      "correctAnswers": 0
+    }
+  ]
+}

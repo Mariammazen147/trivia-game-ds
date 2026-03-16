@@ -1,0 +1,7 @@
+{
+  "serverPort": 5000,
+  "minPlayersPerTeam": 1,
+  "maxPlayersPerTeam": 4,
+  "questionTimeSeconds": 15,
+  "timeWarnings": [10, 5, 3]
+}

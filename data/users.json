@@ -1,0 +1,17 @@
+[
+  {
+    "name": "Bob Jones",
+    "username": "bob",
+    "passwordHash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f"
+  },
+  {
+    "name": "Alice Smith",
+    "username": "alice",
+    "passwordHash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f"
+  },
+  {
+    "name": "Mariam",
+    "username": "mariam",
+    "passwordHash": "a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3"
+  }
+]
