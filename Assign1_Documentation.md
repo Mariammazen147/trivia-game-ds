@@ -11,6 +11,7 @@
 | Group Number | G7 |
 | Student 1 ID | 20226131 |
 | Student 2 ID | 20226023 |
+| Submission Date | March 17, 2026 |
 
 ---
 
@@ -71,8 +72,8 @@ trivia-game/
 │   │                           current question, answer map, and score map. Runs a ScheduledExecutor-
 │   │                           Service for countdown timers and evaluates answers after each question.
 │   ├── QuestionManager.java  — Loads questions.json into memory. Provides getQuestions() for filtered
-│   │                           selection by category and difficulty, getRandomQuestions() for a random
-│   │                           mix, and getAvailableCategories() used by menus.
+│   │                           selection by category and difficulty, and getAvailableCategories()
+│   │                           used to generate numbered category menus in ClientHandler.
 │   ├── UserManager.java      — Loads users.json into a HashMap<String, User>. Handles login (SHA-256
 │   │                           hash comparison) and registration (duplicate check, hash, persist).
 │   │                           Thread-safe via synchronized methods.
@@ -121,10 +122,10 @@ The client and server communicate with **plain text messages over TCP**, each te
 `Server.java` creates a `CachedThreadPool` (`Executors.newCachedThreadPool()`) and submits a new `ClientHandler` runnable for every accepted connection. Each handler owns its socket streams and runs independently, allowing at least 4 clients to be active simultaneously without blocking one another.
 
 **2. Question Bank Management**
-`QuestionManager.java` deserializes `questions.json` into a `List<Question>` on startup. It exposes `getQuestions(String category, String difficulty, int count)`, which filters the list by category and difficulty (accepting `"Any"` as a wildcard for either field) and returns a shuffled subset. `getRandomQuestions(int count)` returns a shuffled random selection regardless of category. `getAvailableCategories()` returns the deduplicated list of categories present in the bank, which is used to generate numbered menus in `ClientHandler`.
+`QuestionManager.java` deserializes `questions.json` into a `List<Question>` on startup. It exposes `getQuestions(String category, String difficulty, int count)`, which filters the list by category and difficulty (accepting `"Any"` as a wildcard for either field), shuffles the result, and returns up to `count` questions. `getAvailableCategories()` returns the deduplicated list of categories present in the bank (using a `LinkedHashSet`), which is used to generate numbered menus in `ClientHandler`.
 
 **3. User Authentication**
-`UserManager.java` stores users in a `HashMap<String, User>` keyed by username. For login, it hashes the supplied password with SHA-256 (`MessageDigest.getInstance("SHA-256")`) and compares it to the stored hash, returning the `User` object on success or `null` on failure. Registration checks for duplicate usernames before saving. The client-facing error messages in `ClientHandler` map to HTTP-style codes: `ERROR:404` for unknown username, `ERROR:401` for wrong password, and `ERROR:409` for a duplicate username during registration. All `UserManager` methods are `synchronized`.
+`UserManager.java` stores users in a `HashMap<String, User>` keyed by username. For login, it hashes the supplied password with SHA-256 (`MessageDigest.getInstance("SHA-256")`) and compares it to the stored hash; if the username is not found it throws `LoginException("404")`, and if the password is wrong it throws `LoginException("401")`. `ClientHandler` catches this exception and sends the appropriate error message to the client (`ERROR:404 Username not found.` or `ERROR:401 Wrong password.`). Registration checks for duplicate usernames before saving and returns `"Username already taken."` on conflict, which `ClientHandler` forwards as `ERROR:409`. All `UserManager` methods are `synchronized`.
 
 **4. Game Setup and File Loading on Startup**
 `Server.java` loads all four data files sequentially before opening the `ServerSocket`. If any file fails to load, the server prints a descriptive error and exits cleanly rather than starting in a broken state. `GameConfig.load()` uses `Gson` to deserialize `config.json` directly into a `GameConfig` object whose fields (`serverPort`, `questionTimeSeconds`, `timeWarnings`, etc.) are then referenced throughout the server.
@@ -133,7 +134,7 @@ The client and server communicate with **plain text messages over TCP**, each te
 After successful login, `ClientHandler.showMenu()` sends the main menu to the client. The menu is numbered (1–4 plus `-` to quit) and the server processes the choice in `handleMenu()`. For solo play (option 1) and team creation (option 2), the handler enters a multi-step sub-flow using internal sub-state constants (`MSUB_SP_CATEGORY`, `MSUB_SP_DIFFICULTY`, `MSUB_SP_COUNT`, etc.), prompting the player for category (numbered list), difficulty (numbered 1–4), and question count in sequence before launching the game.
 
 **6. Teams**
-A player creates a team room via menu option 2, which calls `ClientHandler.createTeamRoom()`. This instantiates a `GameRoom` in team mode and stores it in the shared `ConcurrentHashMap<String, GameRoom> gameRooms` under a generated room ID. Other players select option 3 (Join Team Room), are shown a list of open rooms via `showAvailableRooms()`, and join by entering the room ID. Joined players are added to `team2` in `GameRoom.addPlayer()`. The room creator, held in `STATE_WAITING`, types `START` to begin. `GameRoom.addPlayer()` enforces `maxPlayersPerTeam` (from config) as a hard cap per team.
+A player creates a team room via menu option 2, which calls `ClientHandler.createTeamRoom()`. This instantiates a `GameRoom` in team mode and stores it in the shared `ConcurrentHashMap<String, GameRoom> gameRooms` under a generated room ID. Other players select option 3 (Join Team Room), are shown a list of open rooms via `showAvailableRooms()`, and join by entering the room ID. Joined players are added to `team2` in `GameRoom.addPlayer()`. The room creator, held in `STATE_WAITING`, types `START` to begin. `ClientHandler.handleWaiting()` enforces equal team sizes before starting: it rejects `START` with an error if Team 2 is empty or if the two team sizes differ. `GameRoom.addPlayer()` also enforces `maxPlayersPerTeam` (from config) as a hard cap per team.
 
 **7. The Game Loop**
 `GameRoom.startGame()` loads the filtered question list and calls `askNextQuestion()`. This method clears the current answer map, sets `currentQuestion`, and calls `broadcastQuestion()` (which sends `QUESTION:<json>` to all players) followed by `startTimer()`. `submitAnswer()` records each player's answer and timestamp; once all players have answered it sets `timerActive = false` and calls `evaluateAnswers()` immediately without waiting for the timer. `evaluateAnswers()` scores each player, broadcasts `RESULT:<json>` with per-player results, then schedules the next question 3 seconds later. After the last question, `endGame()` is called.
@@ -154,7 +155,7 @@ Client disconnections mid-game are caught in `ClientHandler.run()`'s `catch (IOE
 
 ## 6. Decisions and Assumptions
 
-- **Score formula:** Correct answer = **+100 points**. The first player to answer correctly in a round receives an additional **+50 speed bonus**. Wrong answers and unanswered questions score 0. Team score is the sum of all individual scores on that team.
+- **Score formula:** Correct answer = **+100 points**. In team mode, the first player to answer correctly in a round receives an additional **+50 speed bonus**; solo mode has no speed bonus. Wrong answers and unanswered questions score 0. Team score is the sum of all individual scores on that team.
 
 - **Password storage:** Passwords are hashed with **SHA-256** (`java.security.MessageDigest`) and stored as hex strings. Plaintext passwords are never written to disk. SHA-256 was chosen over bcrypt for simplicity, as noted in the assignment.
 
@@ -166,11 +167,11 @@ Client disconnections mid-game are caught in `ClientHandler.run()`'s `catch (IOE
 
 - **Authentication flow:** On connect, the client is presented with a numbered menu (1 = Login, 2 = Register). Both flows are step-by-step prompts (username then password, or name then username then password) rather than a single compound command.
 
-- **Team start condition:** The room creator can type `START` at any time while in `STATE_WAITING`. There is no enforced equal-team check before starting — it is the creator's responsibility to wait for the right number of players. This was a simplification.
+- **Team start condition:** The room creator types `START` while in `STATE_WAITING`. The server enforces two conditions before allowing the game to start: Team 2 must have at least one player, and both teams must be the same size. If either check fails, an error is sent to the creator and the game does not start.
 
 - **Disconnection during game:** A disconnecting player is removed from the `GameRoom` via `cleanup()`. Remaining players continue uninterrupted. If the disconnecting player was the last one in the room, the room is removed from `gameRooms`.
 
-- **Correct answer count in scores:** The `correctAnswers` field in a saved `ScoreEntry` is approximated as `score / 100` (integer division), which slightly underestimates when speed bonuses are included. This is noted as an approximation.
+- **Correct answer count in scores:** `GameRoom` maintains a dedicated `correctCounts` map (`Map<String, Integer>`) incremented in `evaluateAnswers()` each time a player answers correctly. The exact correct count is passed directly to `ScoreEntry`, so the saved value is always accurate regardless of speed bonuses.
 
 - **Quit character:** The quit option in all menus is `-` as specified in the assignment.
 
@@ -180,7 +181,5 @@ Client disconnections mid-game are caught in `ClientHandler.run()`'s `catch (IOE
 
 ## 7. Known Limitations
 
-- **Equal team size not enforced at game start:** The server does not verify that Team 1 and Team 2 have equal sizes when the creator types `START`. Players can start a game with unbalanced or empty teams.
-- **Correct answer count is approximate:** The `correctAnswers` field saved in `scores.json` is computed as `totalScore / 100`, which underestimates by 1 per question where the speed bonus (+50) was awarded.
 - **No reconnection support:** If a client disconnects and reconnects, they start a fresh session and cannot rejoin a game already in progress.
 - **Room IDs must be typed manually:** Players joining a team room must type the full room ID string. There is no shorter alias or numbered join menu.
