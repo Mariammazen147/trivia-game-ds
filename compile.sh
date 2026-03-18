@@ -1,5 +1,4 @@
-#!/bin/bash
-# Compile the Trivia Game server and client
+#compile the server and client
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -8,7 +7,6 @@ cd "$SCRIPT_DIR"
 GSON_JAR="lib/gson-2.10.1.jar"
 OUT_DIR="out"
 
-# Locate javac: prefer system PATH, then known user/extension locations
 if command -v javac &>/dev/null; then
     JAVAC="javac"
 elif [ -x "$HOME/java/jdk-current/jdk-21.0.9+10/bin/javac" ]; then

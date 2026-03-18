@@ -1,5 +1,4 @@
-#!/bin/bash
-# Run the Trivia Game server
+#run server
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
@@ -8,9 +7,9 @@ JAVA="${JAVA_HOME:+$JAVA_HOME/bin/java}"
 JAVA="${JAVA:-java}"
 
 if [ ! -d "out/server" ]; then
-    echo "Compiled classes not found. Running compile.sh first..."
+    echo "Compiled classes not found. Running compile.sh first"
     bash compile.sh
 fi
 
-echo "Starting Trivia Game Server..."
+echo "Starting Trivia Game Server"
 "$JAVA" -cp "out:$GSON_JAR" server.Server

@@ -121,7 +121,7 @@ public class Client {
             JsonObject obj = gson.fromJson(json, JsonObject.class);
 
             System.out.println();
-            System.out.println("==========================================");
+            System.out.println("--------------");
 
             String number = obj.has("number") ? obj.get("number").getAsString() : "?";
             String total = obj.has("total") ? obj.get("total").getAsString() : "?";
@@ -131,7 +131,7 @@ public class Client {
 
             System.out.println("  Question " + number + " of " + total
                     + "  [" + category + " | " + difficulty + "]");
-            System.out.println("------------------------------------------");
+            System.out.println("---------------");
             System.out.println("  " + text);
             System.out.println();
 
@@ -142,10 +142,10 @@ public class Client {
                 }
             }
 
-            System.out.println("==========================================");
+            System.out.println("---------------");
             System.out.print("Your answer (A/B/C/D): ");
 
-        } catch (JsonSyntaxException e) {
+        } catch (JsonSyntaxException e){
             System.out.println(json);
         }
     }
@@ -155,7 +155,7 @@ public class Client {
             JsonObject obj = gson.fromJson(json, JsonObject.class);
 
             System.out.println();
-            System.out.println("---------- RESULT ----------");
+            System.out.println("------- RESULT ------");
 
             if (obj.has("questionText")) {
                 System.out.println("Q: " + obj.get("questionText").getAsString());
@@ -191,7 +191,7 @@ public class Client {
                         + "  |  Team 2 score: " + obj.get("team2Score").getAsString());
             }
 
-            System.out.println("----------------------------");
+            System.out.println("-------------");
             System.out.println();
 
         } catch (JsonSyntaxException e) {
@@ -202,11 +202,11 @@ public class Client {
     private static void displayScores(String json) {
         try {
             System.out.println();
-            System.out.println("========== YOUR SCORES ==========");
+            System.out.println("------ YOUR SCORES -------");
 
             if (json.trim().equals("[]") || json.trim().isEmpty()) {
                 System.out.println("  No scores recorded yet.");
-                System.out.println("=================================");
+                System.out.println("------------------");
                 return;
             }
 
@@ -230,7 +230,7 @@ public class Client {
                 }
             }
 
-            System.out.println("=================================");
+            System.out.println("---------------------");
             System.out.println();
 
         } catch (JsonSyntaxException e) {
@@ -243,7 +243,7 @@ public class Client {
             JsonObject obj = gson.fromJson(json, JsonObject.class);
 
             System.out.println();
-            System.out.println("***** GAME OVER *****");
+            System.out.println("------ GAME OVER ------");
 
             if (obj.has("winner")) {
                 System.out.println("Winner: " + obj.get("winner").getAsString());
@@ -269,7 +269,7 @@ public class Client {
                 }
             }
 
-            System.out.println("*********************");
+            System.out.println("--------------");
             System.out.println();
 
         } catch (JsonSyntaxException e) {

@@ -1,13 +1,4 @@
 {
-  "mariam": [
-    {
-      "date": "2026-03-16",
-      "mode": "solo",
-      "score": 150,
-      "totalQuestions": 2,
-      "correctAnswers": 1
-    }
-  ],
   "alice": [
     {
       "date": "2026-03-16",
@@ -29,6 +20,38 @@
       "score": 0,
       "totalQuestions": 1,
       "correctAnswers": 0
+    },
+    {
+      "date": "2026-03-18",
+      "mode": "solo",
+      "score": 200,
+      "totalQuestions": 2,
+      "correctAnswers": 2
+    },
+    {
+      "date": "2026-03-18",
+      "mode": "team",
+      "score": 0,
+      "totalQuestions": 2,
+      "correctAnswers": 0
+    }
+  ],
+  "mariam99": [
+    {
+      "date": "2026-03-18",
+      "mode": "team",
+      "score": 300,
+      "totalQuestions": 2,
+      "correctAnswers": 2
+    }
+  ],
+  "mariam": [
+    {
+      "date": "2026-03-16",
+      "mode": "solo",
+      "score": 150,
+      "totalQuestions": 2,
+      "correctAnswers": 1
     }
   ]
 }

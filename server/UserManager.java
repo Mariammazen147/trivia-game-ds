@@ -59,10 +59,10 @@ public class UserManager {
 
     public synchronized String register(String name, String username, String password){
     if (username == null || username.trim().isEmpty()) {
-        return "Username cannot be empty.";
+        return "Username can't be empty.";
     }
     if (password == null || password.trim().isEmpty()) {
-        return "Password cannot be empty.";
+        return "Password can't be empty.";
     }
     for (String existing : users.keySet()) {
         if (existing.equalsIgnoreCase(username.trim())) {

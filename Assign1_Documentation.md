@@ -1,185 +1,132 @@
-# Assignment 1: Multiplayer Trivia Game — Submission Document
-
----
-
-## 1. Group Information
+# Assignment 1 — Multiplayer Trivia Game
+## Group Information
 
 | Field | Value |
 |-------|-------|
 | Course | Distributed Systems — Winter 2026 |
-| Assignment | Assignment 1: Multiplayer Trivia Game |
 | Group Number | G7 |
-| Student 1 ID | 20226131 |
-| Student 2 ID | 20226023 |
-| Submission Date | March 17, 2026 |
+| Mariam Mazen | 20226131 |
+| Eman Hussein | 20226023 |
 
 ---
 
-## 2. How to Run
+## How to Run
 
-### Requirements
+You need Java JDK 17 or higher and the file gson-2.10.1.jar inside a lib/ folder.
 
-- Java JDK 17 or later (developed and tested on OpenJDK 21)
-- Gson library: `gson-2.10.1.jar` placed in the `lib/` folder
-
-### Compile
-
-From the project root directory:
-
-```bash
-javac -cp "lib/gson-2.10.1.jar" -d out $(find . -name "*.java")
+Compile on Windows:
+```
+javac -cp "lib/gson-2.10.1.jar" -d out server\Server.java server\ClientHandler.java server\GameRoom.java server\GameConfig.java server\QuestionManager.java server\UserManager.java server\ScoreManager.java server\Question.java server\User.java server\ScoreEntry.java client\Client.java
 ```
 
-On Windows:
-
-```cmd
-javac -cp "lib/gson-2.10.1.jar" -d out server\*.java client\*.java
+Compile on Mac or Linux:
+```
+javac -cp "lib/gson-2.10.1.jar" -d out server/Server.java server/ClientHandler.java server/GameRoom.java server/GameConfig.java server/QuestionManager.java server/UserManager.java server/ScoreManager.java server/Question.java server/User.java server/ScoreEntry.java client/Client.java
 ```
 
-### Start the Server
-
-```bash
-java -cp "out:lib/gson-2.10.1.jar" server.Server
+Start the server:
 ```
-
-The server loads all four data files on startup (`config.json`, `users.json`, `questions.json`, `scores.json`) and begins listening on port 5000 (configurable in `data/config.json`).
-
-### Start a Client
-
-Run this in a separate terminal for each player:
-
-```bash
-java -cp "out:lib/gson-2.10.1.jar" client.Client localhost 5000
+java -cp "out;lib/gson-2.10.1.jar" server.Server
 ```
+On Mac/Linux replace ; with :
 
-> On Windows replace `:` with `;` in all classpath arguments.
-> Up to 4 clients can connect simultaneously (configurable via `maxPlayersPerTeam` in `config.json`).
+Start a client (open a new terminal for each player):
+```
+java -cp "out;lib/gson-2.10.1.jar" client.Client localhost 5000
+```
+On Mac/Linux replace ; with :
+
+Two accounts are already set up for testing. Username alice and username bob, both with password password123.
 
 ---
 
-## 3. Project Structure
-
+## Project Files
 ```
-trivia-game/
+trivia-game-ds/
 ├── server/
-│   ├── Server.java           — Entry point. Loads all data files, starts ServerSocket on port 5000,
-│   │                           accepts connections in a loop, dispatches each to a ClientHandler via
-│   │                           an ExecutorService (CachedThreadPool).
-│   ├── ClientHandler.java    — One thread per connected client. Implements a 4-state machine
-│   │                           (AUTH → MENU → WAITING → IN_GAME) with sub-states for multi-step
-│   │                           prompts. Routes all client messages to the appropriate handler.
-│   ├── GameRoom.java         — Manages a single game session (solo or team). Holds the player lists,
-│   │                           current question, answer map, and score map. Runs a ScheduledExecutor-
-│   │                           Service for countdown timers and evaluates answers after each question.
-│   ├── QuestionManager.java  — Loads questions.json into memory. Provides getQuestions() for filtered
-│   │                           selection by category and difficulty, and getAvailableCategories()
-│   │                           used to generate numbered category menus in ClientHandler.
-│   ├── UserManager.java      — Loads users.json into a HashMap<String, User>. Handles login (SHA-256
-│   │                           hash comparison) and registration (duplicate check, hash, persist).
-│   │                           Thread-safe via synchronized methods.
-│   ├── ScoreManager.java     — Loads and saves scores.json as a Map<String, List<ScoreEntry>>.
-│   │                           Provides addScore() and getScores() and persists after every game.
-│   ├── GameConfig.java       — Deserializes config.json into a plain Java object using Gson.
-│   ├── User.java             — POJO: name, username, passwordHash.
-│   ├── Question.java         — POJO: id, text, category, difficulty, choices (List<String>), answer.
-│   └── ScoreEntry.java       — POJO: date, mode, score, totalQuestions, correctAnswers.
+│   ├── Server.java          — starts the server, loads all data files, accepts connections
+│   ├── ClientHandler.java   — one per connected player, handles login, menu, and game input
+│   ├── GameRoom.java        — runs the game, sends questions, manages timer and scoring
+│   ├── QuestionManager.java — loads questions.json, filters by category and difficulty
+│   ├── UserManager.java     — handles login and registration, stores hashed passwords
+│   ├── ScoreManager.java    — reads and writes scores.json
+│   ├── GameConfig.java      — reads config.json
+│   ├── User.java            — stores user data
+│   ├── Question.java        — stores question data
+│   └── ScoreEntry.java      — stores one game result
 ├── client/
-│   └── Client.java           — Connects to the server via Socket. Two threads: one reads server
-│                               messages and prints them with formatted display, one reads stdin and
-│                               sends input to the server. Automatically prepends ANSWER: when the
-│                               user types a single letter (A–D).
+│   └── Client.java          — connects to server, displays messages, sends player input
 ├── data/
-│   ├── users.json            — Persistent list of registered users with SHA-256 hashed passwords.
-│   │                           Seeded with two accounts: alice and bob (password: password123).
-│   ├── scores.json           — Persistent score history per username, updated after every game.
-│   ├── questions.json        — Question bank of 28 questions across Geography, Math, Science, and
-│   │                           History at easy, medium, and hard difficulty levels.
-│   └── config.json           — Server port (5000), team size limits (1–4), question timer (15s),
-│                               and countdown warning thresholds (10s, 5s, 3s).
-├── lib/
-│   └── gson-2.10.1.jar       — Gson library for JSON serialization/deserialization.
-├── out/                      — Compiled .class files (generated by javac).
-├── compile.sh                — Shell script to compile the project.
-├── run_server.sh             — Shell script to start the server.
-└── run_client.sh             — Shell script to start a client.
+│   ├── config.json          — port number, timer, team size limits, warning times
+│   ├── questions.json       — 28 questions in 4 categories, 3 difficulty levels
+│   ├── users.json           — saved user accounts
+│   └── scores.json          — saved score history per player
+└── lib/
+    └── gson-2.10.1.jar      — used to read and write JSON files
 ```
 
 ---
 
-## 4. Architecture Overview
+## Architecture
 
-The project follows a **client-server architecture** built on Java's standard socket API (`java.net.ServerSocket`, `java.net.Socket`). The server is the single source of truth for all game state, user accounts, and scores. Clients are thin terminals: they display output and forward user input; all logic runs on the server.
+The server handles everything. The client is just a terminal that shows what the server sends and forwards what the player types. All game logic runs on the server.
 
-The server uses a **thread-per-client model** implemented with `Executors.newCachedThreadPool()`. When `Server.java` accepts a connection, it wraps the socket in a `ClientHandler` and submits it to the thread pool. Each `ClientHandler` runs its own blocking `readLine()` loop, so threads are fully independent and do not block one another. Shared resources (`UserManager`, `ScoreManager`, `GameRoom`) are accessed through `synchronized` methods to prevent race conditions when multiple clients interact with the same data.
+Multiple players are handled using threads. When a player connects, the server gives them their own thread using a thread pool so players don't wait on each other. We tested with 4 clients at the same time.
 
-The client and server communicate with **plain text messages over TCP**, each terminated by a newline. Every message carries a colon-delimited prefix that identifies its type (e.g., `MSG:`, `QUESTION:`, `TIMER:`, `RESULT:`, `SCORES:`, `GAMEOVER:`, `ERROR:`, `MENU:` from server to client; `LOGIN:`, `REGISTER`, `ANSWER:`, `CHOICE:` from client to server). The client uses a second thread dedicated to reading from the server so that incoming messages (such as timer warnings) are displayed immediately without blocking the user's input thread.
+The server and client communicate using plain text over TCP. Every message starts with a prefix like MSG: or QUESTION: or ERROR: so the client knows how to display it. The client runs two threads, one for showing incoming server messages and one for reading keyboard input, so timer warnings appear even while the player is typing.
 
 ---
 
-## 5. Features Implemented
+## Features
 
-**1. Multiple Concurrent Clients**
-`Server.java` creates a `CachedThreadPool` (`Executors.newCachedThreadPool()`) and submits a new `ClientHandler` runnable for every accepted connection. Each handler owns its socket streams and runs independently, allowing at least 4 clients to be active simultaneously without blocking one another.
+**1. Multiple clients**
+We used Executors.newCachedThreadPool() in Server.java. Each player that connects gets their own thread. They run completely independently.
 
-**2. Question Bank Management**
-`QuestionManager.java` deserializes `questions.json` into a `List<Question>` on startup. It exposes `getQuestions(String category, String difficulty, int count)`, which filters the list by category and difficulty (accepting `"Any"` as a wildcard for either field), shuffles the result, and returns up to `count` questions. `getAvailableCategories()` returns the deduplicated list of categories present in the bank (using a `LinkedHashSet`), which is used to generate numbered menus in `ClientHandler`.
+**2. Question bank**
+QuestionManager loads questions from questions.json on startup. It can filter by category and difficulty. Results are shuffled so you get different questions each game. If you request more questions than exist for that filter, you just get however many are available.
 
-**3. User Authentication**
-`UserManager.java` stores users in a `HashMap<String, User>` keyed by username. For login, it hashes the supplied password with SHA-256 (`MessageDigest.getInstance("SHA-256")`) and compares it to the stored hash; if the username is not found it throws `LoginException("404")`, and if the password is wrong it throws `LoginException("401")`. `ClientHandler` catches this exception and sends the appropriate error message to the client (`ERROR:404 Username not found.` or `ERROR:401 Wrong password.`). Registration checks for duplicate usernames before saving and returns `"Username already taken."` on conflict, which `ClientHandler` forwards as `ERROR:409`. All `UserManager` methods are `synchronized`.
+**3. Login and registration**
+Passwords are hashed with SHA-256 before saving. We never store the real password. At login, we hash what was typed and compare. Wrong username gives error 404, wrong password gives 401, duplicate username at registration gives 409. The duplicate check is case-insensitive so alice and ALICE are treated as the same.
 
-**4. Game Setup and File Loading on Startup**
-`Server.java` loads all four data files sequentially before opening the `ServerSocket`. If any file fails to load, the server prints a descriptive error and exits cleanly rather than starting in a broken state. `GameConfig.load()` uses `Gson` to deserialize `config.json` directly into a `GameConfig` object whose fields (`serverPort`, `questionTimeSeconds`, `timeWarnings`, etc.) are then referenced throughout the server.
+**4. File loading**
+Server.java loads all four files before opening the server socket. If any file fails, it prints an error and stops. It won't start with missing data.
 
-**5. Game Options Menu**
-After successful login, `ClientHandler.showMenu()` sends the main menu to the client. The menu is numbered (1–4 plus `-` to quit) and the server processes the choice in `handleMenu()`. For solo play (option 1) and team creation (option 2), the handler enters a multi-step sub-flow using internal sub-state constants (`MSUB_SP_CATEGORY`, `MSUB_SP_DIFFICULTY`, `MSUB_SP_COUNT`, etc.), prompting the player for category (numbered list), difficulty (numbered 1–4), and question count in sequence before launching the game.
+**5. Game menu**
+After login, players see a numbered menu. Picking solo or creating a team room goes through multiple steps (category, difficulty, count) one at a time. The server tracks which step you're on using a sub-state variable.
 
 **6. Teams**
-A player creates a team room via menu option 2, which calls `ClientHandler.createTeamRoom()`. This instantiates a `GameRoom` in team mode and stores it in the shared `ConcurrentHashMap<String, GameRoom> gameRooms` under a generated room ID. Other players select option 3 (Join Team Room), are shown a list of open rooms via `showAvailableRooms()`, and join by entering the room ID. Joined players are added to `team2` in `GameRoom.addPlayer()`. The room creator, held in `STATE_WAITING`, types `START` to begin. `ClientHandler.handleWaiting()` enforces equal team sizes before starting: it rejects `START` with an error if Team 2 is empty or if the two team sizes differ. `GameRoom.addPlayer()` also enforces `maxPlayersPerTeam` (from config) as a hard cap per team.
+A player creates a room and gets a room ID. Others join by entering that ID. Before starting, the server checks that Team 2 has players and both teams are the same size. If not, an error is shown and the game doesn't start.
 
-**7. The Game Loop**
-`GameRoom.startGame()` loads the filtered question list and calls `askNextQuestion()`. This method clears the current answer map, sets `currentQuestion`, and calls `broadcastQuestion()` (which sends `QUESTION:<json>` to all players) followed by `startTimer()`. `submitAnswer()` records each player's answer and timestamp; once all players have answered it sets `timerActive = false` and calls `evaluateAnswers()` immediately without waiting for the timer. `evaluateAnswers()` scores each player, broadcasts `RESULT:<json>` with per-player results, then schedules the next question 3 seconds later. After the last question, `endGame()` is called.
+**7. Game loop**
+Questions go to all players at the same time. Players have 15 seconds to answer. If everyone answers early, scoring happens right away without waiting for the timer. Each player can only answer once. Late answers are ignored. After scoring, results are shown to everyone and the next question starts 3 seconds later.
 
-**8. Time Updates**
-`GameRoom.startTimer()` uses a `ScheduledExecutorService` to schedule warning broadcasts and the timeout. For each value in `config.timeWarnings` (default: 10, 5, 3 seconds), a task is scheduled at `(totalTime - warningValue)` seconds delay to send `TIMER:<seconds>` to all players. A final task at `totalTime` seconds delay calls `evaluateAnswers()` if `timerActive` is still `true`. Setting `timerActive = false` in `submitAnswer()` prevents the timer from double-evaluating a question.
+**8. Timer warnings**
+The server sends time remaining messages at 10, 5, and 3 seconds left to all players.
 
-**9. End of Game Summary**
-`GameRoom.endGame()` sorts players by their total score descending and sends `GAMEOVER:<json>` to all players. The JSON payload includes a `scores` array (ranked username + score pairs), and for team mode additionally includes `team1Score`, `team2Score`, and `winner`. `Client.java` parses this in `displayGameOver()` and renders a formatted leaderboard table. Two seconds after sending the GAMEOVER message, the server calls `returnToMenu()` on each player to transition them back to `STATE_MENU`.
+**9. Game over**
+After the last question everyone sees the final leaderboard. In team mode it also shows both team scores and who won.
 
-**10. Score History**
-`ScoreManager.java` maintains a `Map<String, List<ScoreEntry>>` loaded from `scores.json` at startup. After each game, `GameRoom.endGame()` calls `scoreManager.addScore(username, entry)` for every player and then `saveScores()`, which serializes the full map back to `scores.json` using Gson with pretty-printing. Players can view their history from the main menu (option 4), which calls `ClientHandler.showScores()` and sends the list as `SCORES:<json>`. The client renders it as a formatted table with columns for date, mode, score, total questions, and correct answers.
+**10. Score history**
+Scores are saved to scores.json after every game. Players can view their history from the main menu. Correct answer count is tracked separately during the game so it's always accurate.
 
-**11. Error Handling**
-Client disconnections mid-game are caught in `ClientHandler.run()`'s `catch (IOException e)` block, which triggers `cleanup()`. `cleanup()` removes the player from their `GameRoom` and broadcasts a disconnect notice to remaining players; if the room becomes empty it is removed from `gameRooms`. Answers submitted after the timer has expired are silently ignored in `GameRoom.submitAnswer()` (the `timerActive` flag is checked). Invalid menu selections re-show the current menu. File-load failures at startup produce a clear error message and halt the server before any connections are accepted.
-
----
-
-## 6. Decisions and Assumptions
-
-- **Score formula:** Correct answer = **+100 points**. In team mode, the first player to answer correctly in a round receives an additional **+50 speed bonus**; solo mode has no speed bonus. Wrong answers and unanswered questions score 0. Team score is the sum of all individual scores on that team.
-
-- **Password storage:** Passwords are hashed with **SHA-256** (`java.security.MessageDigest`) and stored as hex strings. Plaintext passwords are never written to disk. SHA-256 was chosen over bcrypt for simplicity, as noted in the assignment.
-
-- **Data serialization:** All data files use **JSON** format, read and written via the **Gson 2.10.1** library. Gson was chosen because it requires no build tool and the jar can be included manually.
-
-- **Game rooms are in-memory only:** `GameRoom` objects live in a `ConcurrentHashMap` on the server and are not persisted. A server restart clears all active and completed rooms. Only score history (`scores.json`) is persisted across restarts.
-
-- **Client-side input shortcuts:** The client auto-prepends `ANSWER:` when the user types a single letter A–D, and presents category and difficulty as numbered menus so the player never has to type a full string. The server still speaks the full protocol internally.
-
-- **Authentication flow:** On connect, the client is presented with a numbered menu (1 = Login, 2 = Register). Both flows are step-by-step prompts (username then password, or name then username then password) rather than a single compound command.
-
-- **Team start condition:** The room creator types `START` while in `STATE_WAITING`. The server enforces two conditions before allowing the game to start: Team 2 must have at least one player, and both teams must be the same size. If either check fails, an error is sent to the creator and the game does not start.
-
-- **Disconnection during game:** A disconnecting player is removed from the `GameRoom` via `cleanup()`. Remaining players continue uninterrupted. If the disconnecting player was the last one in the room, the room is removed from `gameRooms`.
-
-- **Correct answer count in scores:** `GameRoom` maintains a dedicated `correctCounts` map (`Map<String, Integer>`) incremented in `evaluateAnswers()` each time a player answers correctly. The exact correct count is passed directly to `ScoreEntry`, so the saved value is always accurate regardless of speed bonuses.
-
-- **Quit character:** The quit option in all menus is `-` as specified in the assignment.
-
-- **Client JSON parsing:** `Client.java` uses lightweight regex-based helpers (`extractString`, `extractStringArray`, `extractObjectArray`) instead of Gson to avoid requiring the Gson jar on the client classpath. This covers all message formats sent by the server.
+**11. Error handling**
+If a player disconnects, they are removed from the game and remaining players are told. If the room becomes empty it is deleted. Wrong input shows an error and the menu again. Answers after the timer expired are ignored silently.
 
 ---
 
-## 7. Known Limitations
+## Decisions
 
-- **No reconnection support:** If a client disconnects and reconnects, they start a fresh session and cannot rejoin a game already in progress.
-- **Room IDs must be typed manually:** Players joining a team room must type the full room ID string. There is no shorter alias or numbered join menu.
+- Solo game: 100 points per correct answer, no speed bonus since there is no one to race.
+- Team game: 100 points per correct answer, plus 50 extra for whoever answered first.
+- JSON was used for all data files because it is easy to read and check manually.
+- Game rooms only exist while the server is running. Accounts and scores survive restarts.
+- If a player disconnects mid-game, the game continues for the others.
+- The quit option is - as required.
+
+---
+
+## Known Limitations
+
+- A player who disconnects mid-game cannot rejoin.
+- Joining a room requires typing the full room ID manually.
+- If you request more questions than exist for a category and difficulty, you get fewer than requested with no warning.

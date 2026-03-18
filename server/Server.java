@@ -13,7 +13,7 @@ public class Server {
 
         if (args.length > 0) {
             String dataDir = args[0];
-            configPath    = dataDir + "/config.json";
+            configPath   = dataDir + "/config.json";
             usersPath     = dataDir + "/users.json";
             questionsPath = dataDir + "/questions.json";
             scoresPath    = dataDir + "/scores.json";

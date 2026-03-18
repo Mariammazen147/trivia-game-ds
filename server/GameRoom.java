@@ -110,7 +110,7 @@ public class GameRoom {
         gameStarted = true;
         questions = questionManager.getQuestions(category, difficulty, numQuestions);
         if (questions.isEmpty()) {
-            broadcast("MSG:no questions found for that combo, try different settings");
+            broadcast("MSG:no questions found for that, try different settings");
             gameOver = true;
             return;
         }
@@ -208,7 +208,7 @@ public class GameRoom {
         String fastestPlayer = null;
         long fastestTime = -1;
 
-        for (ClientHandler p : all) {
+        for (ClientHandler p : all){
             String uname = p.getUsername();
             String given = answers.getOrDefault(uname, "");
             if (given.equals(correctAnswer)) {
@@ -232,7 +232,7 @@ public class GameRoom {
                 points = 100;
                 correctCounts.put(uname, correctCounts.getOrDefault(uname, 0) + 1);
 
-                if (isTeamMode && uname.equals(fastestPlayer)) {
+                if (isTeamMode && uname.equals(fastestPlayer)){
                     points += 50;
                 }
             }
