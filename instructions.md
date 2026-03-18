@@ -17,10 +17,9 @@ Write the document with these exact sections:
 |-------|-------|
 | Course | Distributed Systems — Winter 2026 |
 | Assignment | Assignment 1: Multiplayer Trivia Game |
-| Group Number | [leave blank — I will fill in] |
-| Student 1 ID | [leave blank] |
-| Student 2 ID | [leave blank] |
-| Submission Date | March 17, 2026 |
+| Group Number | [G7] |
+| Mariam Mazen  | [20226131] |
+| EMan Hussein | [20226023] |
 
 ---
 
