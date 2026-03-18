@@ -1,5 +1,4 @@
 package server;
-
 import com.google.gson.*;
 import java.time.LocalDate;
 import java.util.*;
@@ -24,24 +23,22 @@ public class GameRoom {
     private int currentQuestionIndex = 0;
     private Question currentQuestion;
 
-    // username -> answer letter
     private final Map<String, String> answers = new HashMap<>();
-    // username -> timestamp when answered (ms)
     private final Map<String, Long> answerTimestamps = new HashMap<>();
-    // username -> total score
     private final Map<String, Integer> playerScores = new HashMap<>();
+    private final Map<String, Integer> correctCounts = new HashMap<>();
 
     private boolean gameStarted = false;
-    private volatile boolean timerActive = false;
-    private volatile boolean gameOver = false;
+    private boolean timerActive = false;
+    private boolean gameOver = false;
 
     private final Gson gson = new Gson();
     private ScheduledExecutorService scheduler;
 
     public GameRoom(String roomId, String roomName, boolean isTeamMode,
-                    String category, String difficulty, int numQuestions,
-                    QuestionManager questionManager, GameConfig config,
-                    ScoreManager scoreManager) {
+            String category, String difficulty, int numQuestions,
+            QuestionManager questionManager, GameConfig config,
+            ScoreManager scoreManager) {
         this.roomId = roomId;
         this.roomName = roomName;
         this.isTeamMode = isTeamMode;
@@ -53,18 +50,35 @@ public class GameRoom {
         this.scoreManager = scoreManager;
     }
 
-    public String getRoomId() { return roomId; }
-    public String getRoomName() { return roomName; }
-    public boolean isTeamMode() { return isTeamMode; }
-    public boolean isGameStarted() { return gameStarted; }
-    public boolean isGameOver() { return gameOver; }
+    public String getRoomId() {
+        return roomId;
+    }
+
+    public String getRoomName() {
+        return roomName;
+    }
+
+    public boolean isTeamMode() {
+        return isTeamMode;
+    }
+
+    public boolean isGameStarted() {
+        return gameStarted;
+    }
+
+    public boolean isGameOver() {
+        return gameOver;
+    }
 
     public synchronized boolean addPlayer(ClientHandler handler, int team) {
-        if (gameStarted) return false;
+        if (gameStarted)
+            return false;
         List<ClientHandler> targetTeam = (team == 1) ? team1 : team2;
-        if (targetTeam.size() >= config.maxPlayersPerTeam) return false;
+        if (targetTeam.size() >= config.maxPlayersPerTeam)
+            return false;
         targetTeam.add(handler);
         playerScores.put(handler.getUsername(), 0);
+        correctCounts.put(handler.getUsername(), 0);
         return true;
     }
 
@@ -72,10 +86,16 @@ public class GameRoom {
         team1.remove(handler);
         team2.remove(handler);
         playerScores.remove(handler.getUsername());
+        correctCounts.remove(handler.getUsername());
     }
 
-    public synchronized int getTeam1Size() { return team1.size(); }
-    public synchronized int getTeam2Size() { return team2.size(); }
+    public synchronized int getTeam1Size() {
+        return team1.size();
+    }
+
+    public synchronized int getTeam2Size() {
+        return team2.size();
+    }
 
     public synchronized List<ClientHandler> getAllPlayers() {
         List<ClientHandler> all = new ArrayList<>();
@@ -85,15 +105,16 @@ public class GameRoom {
     }
 
     public synchronized void startGame() {
-        if (gameStarted) return;
+        if (gameStarted)
+            return;
         gameStarted = true;
         questions = questionManager.getQuestions(category, difficulty, numQuestions);
         if (questions.isEmpty()) {
-            broadcast("MSG: No questions found for the selected category/difficulty. Game cancelled.");
+            broadcast("MSG:no questions found for that combo, try different settings");
             gameOver = true;
             return;
         }
-        broadcast("MSG: Game is starting! Get ready...");
+        broadcast("MSG:starting! get ready");
         currentQuestionIndex = 0;
         scheduler = Executors.newSingleThreadScheduledExecutor();
         askNextQuestion();
@@ -114,8 +135,9 @@ public class GameRoom {
     }
 
     private synchronized void broadcastQuestion() {
-        if (currentQuestion == null) return;
-        Map<String, Object> qData = new LinkedHashMap<>();
+        if (currentQuestion == null)
+            return;
+        Map<String, Object> qData = new HashMap<>();
         qData.put("id", currentQuestion.id);
         qData.put("number", currentQuestionIndex);
         qData.put("total", questions.size());
@@ -130,13 +152,14 @@ public class GameRoom {
     private void startTimer() {
         timerActive = true;
         final int totalTime = config.questionTimeSeconds;
-        // Sort warnings descending so we schedule from the end of the countdown
-        List<Integer> warnings = config.timeWarnings != null
-                ? new ArrayList<>(config.timeWarnings) : new ArrayList<>();
-        Collections.sort(warnings, Collections.reverseOrder());
 
-        // Schedule warnings
-        for (int w : warnings) {
+        List<Integer> warnings = new ArrayList<>();
+        if (config.timeWarnings != null) {
+            warnings.addAll(config.timeWarnings);
+        }
+
+        for (int i = 0; i < warnings.size(); i++) {
+            final int w = warnings.get(i);
             if (w < totalTime) {
                 long delay = totalTime - w;
                 scheduler.schedule(() -> {
@@ -147,7 +170,6 @@ public class GameRoom {
             }
         }
 
-        // Schedule expiry
         scheduler.schedule(() -> {
             if (timerActive) {
                 timerActive = false;
@@ -157,12 +179,13 @@ public class GameRoom {
     }
 
     public synchronized void submitAnswer(String username, String answer) {
-        if (!gameStarted || gameOver || currentQuestion == null) return;
-        if (answers.containsKey(username)) return; // already answered
+        if (!gameStarted || gameOver || currentQuestion == null)
+            return;
+        if (answers.containsKey(username))
+            return;
         answers.put(username, answer.toUpperCase().trim());
         answerTimestamps.put(username, System.currentTimeMillis());
 
-        // Check if all players have answered
         List<ClientHandler> all = getAllPlayers();
         if (answers.size() >= all.size()) {
             timerActive = false;
@@ -171,27 +194,33 @@ public class GameRoom {
     }
 
     private synchronized void evaluateAnswers() {
-        if (currentQuestion == null) return;
+        if (currentQuestion == null)
+            return;
         String correctAnswer = currentQuestion.answer.toUpperCase().trim();
 
-        Map<String, Object> result = new LinkedHashMap<>();
+        Map<String, Object> result = new HashMap<>();
         result.put("questionId", currentQuestion.id);
         result.put("correctAnswer", correctAnswer);
         result.put("questionText", currentQuestion.text);
 
-        List<Map<String, Object>> playerResults = new ArrayList<>();
         List<ClientHandler> all = getAllPlayers();
 
-        // Find fastest correct answerer for speed bonus
-        long fastestTime = Long.MAX_VALUE;
+        String fastestPlayer = null;
+        long fastestTime = -1;
+
         for (ClientHandler p : all) {
             String uname = p.getUsername();
             String given = answers.getOrDefault(uname, "");
             if (given.equals(correctAnswer)) {
                 long ts = answerTimestamps.getOrDefault(uname, Long.MAX_VALUE);
-                if (ts < fastestTime) fastestTime = ts;
+                if (fastestPlayer == null || ts < fastestTime) {
+                    fastestPlayer = uname;
+                    fastestTime = ts;
+                }
             }
         }
+
+        List<Map<String, Object>> playerResults = new ArrayList<>();
 
         for (ClientHandler p : all) {
             String uname = p.getUsername();
@@ -201,9 +230,9 @@ public class GameRoom {
 
             if (correct) {
                 points = 100;
-                // Speed bonus: first correct answerer gets +50
-                long ts = answerTimestamps.getOrDefault(uname, Long.MAX_VALUE);
-                if (ts == fastestTime && fastestTime != Long.MAX_VALUE) {
+                correctCounts.put(uname, correctCounts.getOrDefault(uname, 0) + 1);
+
+                if (isTeamMode && uname.equals(fastestPlayer)) {
                     points += 50;
                 }
             }
@@ -211,7 +240,7 @@ public class GameRoom {
             int prev = playerScores.getOrDefault(uname, 0);
             playerScores.put(uname, prev + points);
 
-            Map<String, Object> pr = new LinkedHashMap<>();
+            Map<String, Object> pr = new HashMap<>();
             pr.put("username", uname);
             pr.put("answer", given);
             pr.put("correct", correct);
@@ -219,9 +248,9 @@ public class GameRoom {
             pr.put("totalScore", playerScores.get(uname));
             playerResults.add(pr);
         }
+
         result.put("playerResults", playerResults);
 
-        // Team scores if applicable
         if (isTeamMode) {
             int team1Score = 0;
             int team2Score = 0;
@@ -238,7 +267,6 @@ public class GameRoom {
         String json = gson.toJson(result);
         broadcast("RESULT:" + json);
 
-        // Pause briefly, then ask next question
         scheduler.schedule(() -> {
             synchronized (GameRoom.this) {
                 askNextQuestion();
@@ -252,19 +280,28 @@ public class GameRoom {
             scheduler.shutdownNow();
         }
 
-        Map<String, Object> gameOverData = new LinkedHashMap<>();
+        Map<String, Object> gameOverData = new HashMap<>();
         gameOverData.put("event", "GAMEOVER");
 
-        List<Map<String, Object>> finalScores = new ArrayList<>();
         List<ClientHandler> all = getAllPlayers();
 
-        // Sort by score descending
-        all.sort((a, b) -> playerScores.getOrDefault(b.getUsername(), 0)
-                - playerScores.getOrDefault(a.getUsername(), 0));
+        List<ClientHandler> sorted = new ArrayList<>(all);
+        for (int i = 0; i < sorted.size() - 1; i++) {
+            for (int j = i + 1; j < sorted.size(); j++) {
+                int scoreI = playerScores.getOrDefault(sorted.get(i).getUsername(), 0);
+                int scoreJ = playerScores.getOrDefault(sorted.get(j).getUsername(), 0);
+                if (scoreJ > scoreI) {
+                    ClientHandler temp = sorted.get(i);
+                    sorted.set(i, sorted.get(j));
+                    sorted.set(j, temp);
+                }
+            }
+        }
 
-        for (ClientHandler p : all) {
+        List<Map<String, Object>> finalScores = new ArrayList<>();
+        for (ClientHandler p : sorted) {
             String uname = p.getUsername();
-            Map<String, Object> entry = new LinkedHashMap<>();
+            Map<String, Object> entry = new HashMap<>();
             entry.put("username", uname);
             entry.put("score", playerScores.getOrDefault(uname, 0));
             finalScores.add(entry);
@@ -283,40 +320,40 @@ public class GameRoom {
             gameOverData.put("team1Score", team1Score);
             gameOverData.put("team2Score", team2Score);
             String winner;
-            if (team1Score > team2Score) winner = "Team 1";
-            else if (team2Score > team1Score) winner = "Team 2";
-            else winner = "Tie";
+            if (team1Score > team2Score) {
+                winner = "Team 1";
+            } else if (team2Score > team1Score) {
+                winner = "Team 2";
+            } else {
+                winner = "Tie";
+            }
             gameOverData.put("winner", winner);
         } else {
-            // Single player
-            if (!all.isEmpty()) {
-                String uname = all.get(0).getUsername();
-                gameOverData.put("winner", uname);
+            if (!sorted.isEmpty()) {
+                gameOverData.put("winner", sorted.get(0).getUsername());
             }
         }
 
         String json = gson.toJson(gameOverData);
         broadcast("GAMEOVER:" + json);
 
-        // Save scores for each player
         String today = LocalDate.now().toString();
         String mode = isTeamMode ? "team" : "solo";
         for (ClientHandler p : all) {
             String uname = p.getUsername();
             int score = playerScores.getOrDefault(uname, 0);
-            // Count correct: score / 100 (ignoring speed bonuses for simplicity, approximate)
-            int correctApprox = score / 100;
-            ScoreEntry entry = new ScoreEntry(today, mode, score, questions.size(), correctApprox);
+            int correct = correctCounts.getOrDefault(uname, 0);
+            ScoreEntry entry = new ScoreEntry(today, mode, score, questions.size(), correct);
             scoreManager.addScore(uname, entry);
         }
 
-        // After a delay, notify players and clean up
-        new Thread(() -> {
-            try { Thread.sleep(2000); } catch (InterruptedException ignored) {}
+        scheduler = Executors.newSingleThreadScheduledExecutor();
+        scheduler.schedule(() -> {
             for (ClientHandler p : getAllPlayers()) {
                 p.returnToMenu();
             }
-        }).start();
+            scheduler.shutdown();
+        }, 2, TimeUnit.SECONDS);
     }
 
     public synchronized void broadcast(String msg) {
@@ -327,7 +364,9 @@ public class GameRoom {
     }
 
     public String getRoomInfo() {
-        return String.format("%s | Category: %s | Difficulty: %s | Questions: %d | Team1: %d | Team2: %d",
-                roomName, category, difficulty, numQuestions, team1.size(), team2.size());
+        return roomName + " | " + category + " | " + difficulty
+                + " | " + numQuestions + " questions"
+                + " | team1: " + team1.size()
+                + " | team2: " + team2.size();
     }
 }

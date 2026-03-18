@@ -1,5 +1,4 @@
 package server;
-
 import java.io.*;
 import java.net.*;
 import java.util.concurrent.*;
@@ -12,7 +11,6 @@ public class Server {
         String questionsPath = "data/questions.json";
         String scoresPath    = "data/scores.json";
 
-        // Allow overriding data directory via first argument
         if (args.length > 0) {
             String dataDir = args[0];
             configPath    = dataDir + "/config.json";
@@ -27,36 +25,34 @@ public class Server {
         ScoreManager scoreManager;
 
         try {
-            System.out.println("[Server] Loading configuration from " + configPath);
+            System.out.println("loading config from " + configPath);
             config = GameConfig.load(configPath);
         } catch (IOException e) {
-            System.err.println("[Server] Failed to load config: " + e.getMessage());
-            System.err.println("[Server] Make sure " + configPath + " exists.");
+            System.err.println("couldn't load config file: " + e.getMessage());
             return;
         }
 
         try {
-            System.out.println("[Server] Loading users from " + usersPath);
+            System.out.println("loading users...");
             userManager = new UserManager(usersPath);
         } catch (IOException e) {
-            System.err.println("[Server] Failed to load users: " + e.getMessage());
+            System.err.println("error loading users: " + e.getMessage());
             return;
         }
 
         try {
-            System.out.println("[Server] Loading questions from " + questionsPath);
             questionManager = new QuestionManager(questionsPath);
-            System.out.println("[Server] Loaded " + questionManager.getTotalQuestions() + " questions.");
+            System.out.println("loaded " + questionManager.getTotalQuestions() + " questions");
         } catch (IOException e) {
-            System.err.println("[Server] Failed to load questions: " + e.getMessage());
+            System.err.println("error loading questions: " + e.getMessage());
             return;
         }
 
         try {
-            System.out.println("[Server] Loading scores from " + scoresPath);
+            System.out.println("loading scores...");
             scoreManager = new ScoreManager(scoresPath);
         } catch (IOException e) {
-            System.err.println("[Server] Failed to load scores: " + e.getMessage());
+            System.err.println("error loading scores: " + e.getMessage());
             return;
         }
 
@@ -64,18 +60,14 @@ public class Server {
         ExecutorService threadPool = Executors.newCachedThreadPool();
 
         int port = config.serverPort;
-        System.out.println("[Server] Starting on port " + port + "...");
+        System.out.println("starting on port " + port);
 
         try (ServerSocket serverSocket = new ServerSocket(port)) {
-            System.out.println("[Server] Listening for connections on port " + port);
-            System.out.println("[Server] Press Ctrl+C to stop.");
-
+            System.out.println("server is up, waiting for players to connect...");
             while (!serverSocket.isClosed()) {
                 try {
                     Socket clientSocket = serverSocket.accept();
-                    String clientAddr = clientSocket.getInetAddress().getHostAddress()
-                            + ":" + clientSocket.getPort();
-                    System.out.println("[Server] New connection from " + clientAddr);
+                    System.out.println("new player connected");
 
                     ClientHandler handler = new ClientHandler(
                             clientSocket,
@@ -88,15 +80,15 @@ public class Server {
                     threadPool.execute(handler);
                 } catch (IOException e) {
                     if (!serverSocket.isClosed()) {
-                        System.err.println("[Server] Error accepting connection: " + e.getMessage());
+                        System.err.println("problem accepting connection: " + e.getMessage());
                     }
                 }
             }
         } catch (IOException e) {
-            System.err.println("[Server] Could not start server on port " + port + ": " + e.getMessage());
+            System.err.println("failed to start on port " + port + ": " + e.getMessage());
         } finally {
             threadPool.shutdown();
-            System.out.println("[Server] Server stopped.");
+            System.out.println("server stopped");
         }
     }
 }

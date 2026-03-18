@@ -1,5 +1,4 @@
 package server;
-
 import com.google.gson.*;
 import com.google.gson.reflect.TypeToken;
 import java.io.*;
@@ -22,7 +21,8 @@ public class ScoreManager {
             return;
         }
         try (Reader r = new FileReader(f)) {
-            Type mapType = new TypeToken<Map<String, List<ScoreEntry>>>() {}.getType();
+            Type mapType = new TypeToken<Map<String, List<ScoreEntry>>>() {
+            }.getType();
             Map<String, List<ScoreEntry>> loaded = gson.fromJson(r, mapType);
             if (loaded != null) {
                 scores.putAll(loaded);
@@ -31,7 +31,10 @@ public class ScoreManager {
     }
 
     public synchronized void addScore(String username, ScoreEntry entry) {
-        scores.computeIfAbsent(username, k -> new ArrayList<>()).add(entry);
+        if (!scores.containsKey(username)) {
+            scores.put(username, new ArrayList<>());
+        }
+        scores.get(username).add(entry);
         try {
             saveScores();
         } catch (IOException e) {

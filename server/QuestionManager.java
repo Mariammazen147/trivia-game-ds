@@ -1,5 +1,4 @@
 package server;
-
 import com.google.gson.*;
 import com.google.gson.reflect.TypeToken;
 import java.io.*;
@@ -24,18 +23,6 @@ public class QuestionManager {
         }
     }
 
-    /**
-     * Returns a shuffled random selection of up to count questions from all questions.
-     */
-    public List<Question> getRandomQuestions(int count) {
-        List<Question> copy = new ArrayList<>(allQuestions);
-        Collections.shuffle(copy);
-        return copy.subList(0, Math.min(count, copy.size()));
-    }
-
-    /**
-     * Returns a filtered, shuffled selection. Pass null or empty string to skip that filter.
-     */
     public List<Question> getQuestions(String category, String difficulty, int count) {
         List<Question> filtered = new ArrayList<>();
         for (Question q : allQuestions) {
@@ -54,16 +41,14 @@ public class QuestionManager {
     }
 
     public List<String> getAvailableCategories() {
-        Set<String> cats = new LinkedHashSet<>();
+        Set<String> catgs = new LinkedHashSet<>();
         for (Question q : allQuestions) {
-            cats.add(q.category);
+            catgs.add(q.category);
         }
-        return new ArrayList<>(cats);
+        return new ArrayList<>(catgs);
     }
 
-    public List<String> getAvailableDifficulties() {
-        return Arrays.asList("easy", "medium", "hard");
-    }
+
 
     public int getTotalQuestions() {
         return allQuestions.size();

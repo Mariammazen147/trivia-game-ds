@@ -1,5 +1,4 @@
 package server;
-
 import com.google.gson.*;
 import java.io.*;
 import java.net.Socket;
@@ -8,23 +7,23 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class ClientHandler implements Runnable {
 
-    // --- Top-level States ---
+    //level states
     private static final int STATE_AUTH     = 0;
     private static final int STATE_MENU     = 1;
     private static final int STATE_WAITING  = 2;
     private static final int STATE_IN_GAME  = 3;
 
-    // --- Auth sub-states ---
-    private static final int AUTH_IDLE              = 0;
-    // Login flow
-    private static final int AUTH_LOGIN_USERNAME    = 1;
+    //auth state
+    private static final int AUTH_IDLE           = 0;
+    //login flow
+    private static final int AUTH_LOGIN_USERNAME   = 1;
     private static final int AUTH_LOGIN_PASSWORD    = 2;
-    // Register flow
+    //register flow
     private static final int AUTH_REG_NAME          = 3;
     private static final int AUTH_REG_USERNAME      = 4;
     private static final int AUTH_REG_PASSWORD      = 5;
 
-    // --- Menu sub-states (for multi-step prompts) ---
+    //menu states
     private static final int MSUB_NONE            = 0;
     private static final int MSUB_SP_CATEGORY     = 1;
     private static final int MSUB_SP_DIFFICULTY   = 2;
@@ -45,20 +44,19 @@ public class ClientHandler implements Runnable {
     private PrintWriter out;
     private BufferedReader in;
 
-    // Current top-level state
-    int state = STATE_AUTH;
+    int state = STATE_AUTH;//current level
 
     private User currentUser = null;
     GameRoom currentRoom = null;
     private boolean isTeamCreator = false;
 
-    // Auth flow
+    //auth flow
     private int authState = AUTH_IDLE;
     private String regName;
     private String regUsername;
     private String loginUsername;
 
-    // Menu sub-state for multi-step prompts
+    //menu flow
     private int menuSub = MSUB_NONE;
     private String tmpCategory;
     private String tmpDifficulty;
@@ -68,7 +66,7 @@ public class ClientHandler implements Runnable {
 
     public ClientHandler(Socket socket, UserManager userManager, QuestionManager questionManager,
                          ScoreManager scoreManager, ConcurrentHashMap<String, GameRoom> gameRooms,
-                         GameConfig config) {
+                         GameConfig config){
         this.socket = socket;
         this.userManager = userManager;
         this.questionManager = questionManager;
@@ -77,52 +75,56 @@ public class ClientHandler implements Runnable {
         this.config = config;
     }
 
-    public String getUsername() {
+    public String getUsername(){
         return currentUser != null ? currentUser.username : "unknown";
     }
 
-    public synchronized void sendMessage(String msg) {
+    public synchronized void sendMessage(String msg){
         if (out != null) {
             out.println(msg);
         }
     }
 
     @Override
-    public void run() {
-        try {
+    public void run(){
+        try{
             out = new PrintWriter(new BufferedWriter(
                     new OutputStreamWriter(socket.getOutputStream())), true);
             in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
-            sendMessage("MSG:Welcome to Trivia Game!");
+            sendMessage("MSG:hey!! welcome to the trivia game :)");
             showAuthMenu();
 
             String line;
             while ((line = in.readLine()) != null) {
                 line = line.trim();
-                if (line.isEmpty()) continue;
                 dispatch(line);
             }
-        } catch (IOException e) {
-            // Client disconnected
-        } finally {
+        }catch (IOException e){
+            //client disconnected
+        }finally{
             cleanup();
         }
     }
 
     private void dispatch(String line) {
         switch (state) {
-            case STATE_AUTH:    handleAuth(line);    break;
-            case STATE_MENU:    handleMenu(line);    break;
-            case STATE_WAITING: handleWaiting(line); break;
-            case STATE_IN_GAME: handleInGame(line);  break;
+            case STATE_AUTH:
+                handleAuth(line);
+                break;
+            case STATE_MENU:
+                handleMenu(line);
+                break;
+            case STATE_WAITING:
+                handleWaiting(line);
+                break;
+            case STATE_IN_GAME:
+                handleInGame(line);
+                break;
         }
     }
 
-    // =========================================================================
-    // AUTH STATE
-    // =========================================================================
-
+    //auth
     private void showAuthMenu() {
         sendMessage("MENU:1. Login");
         sendMessage("MENU:2. Register");
@@ -130,7 +132,14 @@ public class ClientHandler implements Runnable {
     }
 
     private void handleAuth(String line) {
-        // Route to active sub-flow first
+        if (authState != AUTH_IDLE) {
+            handleAuthStep(line);
+            return;
+        }
+        if (line.isEmpty()) {
+            showAuthMenu();
+            return;
+        }
         if (authState != AUTH_IDLE) {
             handleAuthStep(line);
             return;
@@ -143,7 +152,7 @@ public class ClientHandler implements Runnable {
                 break;
             case "2":
                 authState = AUTH_REG_NAME;
-                sendMessage("MSG:--- Account Registration ---");
+                sendMessage("MSG:Account Registration");
                 sendMessage("MSG:Enter your full name:");
                 break;
             default:
@@ -157,32 +166,39 @@ public class ClientHandler implements Runnable {
         switch (authState) {
             case AUTH_LOGIN_USERNAME:
                 loginUsername = line.trim();
-                if (loginUsername.isEmpty()) {
-                    sendMessage("ERROR:Username cannot be empty:");
+                if (loginUsername.isEmpty()){
+                    sendMessage("ERROR:Username can't be empty.");
                     return;
                 }
-                authState = AUTH_LOGIN_PASSWORD;
+                authState =AUTH_LOGIN_PASSWORD;
                 sendMessage("MSG:Enter your password:");
                 break;
 
             case AUTH_LOGIN_PASSWORD:
-                User user = userManager.login(loginUsername, line.trim());
                 authState = AUTH_IDLE;
-                if (user == null) {
-                    sendMessage("ERROR:Invalid username or password.");
-                    showAuthMenu();
-                } else {
+                try{
+                    User user = userManager.login(loginUsername, line.trim());
                     currentUser = user;
                     state = STATE_MENU;
-                    sendMessage("MSG:Login successful! Welcome back, " + user.name + ".");
+                    sendMessage("MSG:Login successful!! welcome back,  " + user.name);
                     showMenu();
+                } catch (UserManager.LoginException e) {
+                    String code = e.getMessage();
+                    if (code.equals("404")){
+                        sendMessage("ERROR:404  Username not found.");
+                    } else if (code.equals("401")) {
+                        sendMessage("ERROR:401  Wrong password.");
+                    } else {
+                        sendMessage("ERROR:Login failed.");
+                    }
+                    showAuthMenu();
                 }
                 break;
 
             case AUTH_REG_NAME:
                 regName = line.trim();
-                if (regName.isEmpty()) {
-                    sendMessage("ERROR:Name cannot be empty:");
+                if (regName.isEmpty()){
+                    sendMessage("ERROR:Name cannot be empty.");
                     return;
                 }
                 authState = AUTH_REG_USERNAME;
@@ -191,8 +207,8 @@ public class ClientHandler implements Runnable {
 
             case AUTH_REG_USERNAME:
                 regUsername = line.trim();
-                if (regUsername.isEmpty()) {
-                    sendMessage("ERROR:Username cannot be empty:");
+                if (regUsername.isEmpty()){
+                    sendMessage("ERROR: username cannot be empty.");
                     return;
                 }
                 authState = AUTH_REG_PASSWORD;
@@ -202,46 +218,50 @@ public class ClientHandler implements Runnable {
             case AUTH_REG_PASSWORD:
                 String password = line.trim();
                 if (password.isEmpty()) {
-                    sendMessage("ERROR:Password cannot be empty:");
+                    sendMessage("ERROR:Password can't be empty.");
                     return;
                 }
                 String error = userManager.register(regName, regUsername, password);
                 authState = AUTH_IDLE;
-                if (error != null) {
-                    sendMessage("ERROR:" + error);
+                if (error != null){
+                    if (error.equals("Username already taken.")) {
+                        sendMessage("ERROR:409 Username already taken.");
+                    } else {
+                        sendMessage("ERROR:" + error);
+                    }
                     showAuthMenu();
-                } else {
+                } else{
                     currentUser = userManager.getUser(regUsername);
                     state = STATE_MENU;
-                    sendMessage("MSG:Registration successful! Welcome, " + regName + ".");
+                    sendMessage("MSG:account created! welcome " + regName);
                     showMenu();
                 }
                 break;
         }
     }
 
-    // =========================================================================
-    // MENU STATE
-    // =========================================================================
 
-    private void showMenu() {
-        sendMessage("MENU:========== Main Menu ==========");
-        sendMessage("MENU:1. Play Solo");
-        sendMessage("MENU:2. Create Team Room");
-        sendMessage("MENU:3. Join Team Room");
-        sendMessage("MENU:4. View My Scores");
-        sendMessage("MENU:-. Quit");
-        sendMessage("MENU:Enter your choice:");
+    //menu
+    private void showMenu(){
+        sendMessage("MENU:--- what do you want to do? ---");
+        sendMessage("MENU:1. play solo");
+        sendMessage("MENU:2. create a team room");
+        sendMessage("MENU:3. join a team room");
+        sendMessage("MENU:4. view my scores");
+        sendMessage("MENU:-. quit");
+        sendMessage("MENU:enter your choice:");
     }
 
     private void handleMenu(String line) {
-        // If we are in a multi-step menu sub-flow, route there
-        if (menuSub != MSUB_NONE) {
+        if (line.isEmpty()) {
+            return;
+        }
+        if (menuSub != MSUB_NONE){
             handleMenuSubState(line);
             return;
         }
 
-        // Strip optional CHOICE: prefix
+
         String choice = line.startsWith("CHOICE:") ? line.substring(7).trim() : line.trim();
 
         switch (choice) {
@@ -273,7 +293,7 @@ public class ClientHandler implements Runnable {
 
     private void handleMenuSubState(String line) {
         switch (menuSub) {
-            // ---- Solo setup ----
+            //solo
             case MSUB_SP_CATEGORY:
                 tmpCategory = resolveCategory(line);
                 menuSub = MSUB_SP_DIFFICULTY;
@@ -300,7 +320,7 @@ public class ClientHandler implements Runnable {
                 }
                 break;
 
-            // ---- Team create setup ----
+            //team
             case MSUB_TC_NAME:
                 tmpRoomName = line.trim();
                 if (tmpRoomName.isEmpty()) {
@@ -337,7 +357,7 @@ public class ClientHandler implements Runnable {
                 }
                 break;
 
-            // ---- Join room ----
+                //join room
             case MSUB_JOIN_ROOM:
                 handleJoinRoomInput(line);
                 break;
@@ -349,16 +369,16 @@ public class ClientHandler implements Runnable {
         }
     }
 
-    private void promptSoloCategory() {
-        sendMessage("MSG:--- Solo Game Setup ---");
+    private void promptSoloCategory(){
+        sendMessage("MSG:  SOLO GAME  ");
         sendCategoryMenu();
     }
 
-    private void promptTeamCategory() {
+    private void promptTeamCategory(){
         sendCategoryMenu();
     }
 
-    private void sendCategoryMenu() {
+    private void sendCategoryMenu(){
         List<String> cats = questionManager.getAvailableCategories();
         sendMessage("MSG:Select a category:");
         for (int i = 0; i < cats.size(); i++) {
@@ -382,7 +402,7 @@ public class ClientHandler implements Runnable {
             if (n >= 1 && n <= cats.size()) return cats.get(n - 1);
             if (n == cats.size() + 1) return "Any";
         } catch (NumberFormatException ignored) {}
-        return input.trim(); // accept typed name as-is
+        return input.trim();
     }
 
     private String resolveDifficulty(String input) {
@@ -404,7 +424,6 @@ public class ClientHandler implements Runnable {
         currentRoom = room;
         state = STATE_IN_GAME;
         sendMessage("MSG:Starting solo game! Good luck, " + currentUser.name + "!");
-        sendMessage("MSG:Answer each question with ANSWER:<A/B/C/D>");
         room.startGame();
     }
 
@@ -417,12 +436,12 @@ public class ClientHandler implements Runnable {
         currentRoom = room;
         isTeamCreator = true;
         state = STATE_WAITING;
-        sendMessage("MSG:Room '" + roomName + "' created!");
-        sendMessage("MSG:Room ID: " + roomId + "  (share this with your opponents)");
-        sendMessage("MSG:You are on Team 1.");
-        sendMessage("MSG:When ready, type CHOICE:START to begin the game.");
-        sendMessage("MSG:Others can join with option 3 from the main menu.");
-    }
+        sendMessage("MSG:room '" + roomName + "' is ready!");
+        sendMessage("MSG:room id: " + roomId + " -- share this with whoever is joining");
+        sendMessage("MSG:you're on team 1");
+        sendMessage("MSG:type START when everyone is in");
+        sendMessage("MSG:teammates can join from the main menu option 3");
+     }
 
     private void showAvailableRooms() {
         List<GameRoom> available = new ArrayList<>();
@@ -433,19 +452,19 @@ public class ClientHandler implements Runnable {
         }
         if (available.isEmpty()) {
             sendMessage("MENU:No team rooms are currently available.");
-            sendMessage("MENU:Choose '2' to create one, or any other option:");
+            sendMessage("MENU:you can create one with option 2:");
             showMenu();
             return;
         }
-        sendMessage("MENU:--- Available Team Rooms ---");
+        sendMessage("MENU:open rooms:");
         for (GameRoom r : available) {
             sendMessage("MENU:[" + r.getRoomId() + "] " + r.getRoomInfo());
         }
-        sendMessage("MENU:Enter a Room ID to join, or 'back' to return to the main menu:");
+        sendMessage("MENU:type the room id to join, or 'back' to go back:");
         menuSub = MSUB_JOIN_ROOM;
     }
 
-    private void handleJoinRoomInput(String input) {
+    private void handleJoinRoomInput(String input){
         menuSub = MSUB_NONE;
         if (input.equalsIgnoreCase("back")) {
             showMenu();
@@ -459,21 +478,18 @@ public class ClientHandler implements Runnable {
         }
         boolean joined = room.addPlayer(this, 2);
         if (!joined) {
-            sendMessage("ERROR:Could not join room — Team 2 may be full.");
+            sendMessage("ERROR:Couldn't join room — Team 2 might be full.");
             showMenu();
             return;
         }
         currentRoom = room;
         isTeamCreator = false;
         state = STATE_WAITING;
-        sendMessage("MSG:You joined room '" + room.getRoomName() + "' on Team 2!");
-        sendMessage("MSG:Waiting for the room creator to start the game...");
-        room.broadcast("MSG:" + currentUser.name + " joined Team 2! (Team 2 size: " + room.getTeam2Size() + ")");
+        sendMessage("MSG:joined room '" + room.getRoomName() + "', you're on team 2");
+        sendMessage("MSG:waiting for the room creator to start...");
+        room.broadcast("MSG:" + currentUser.name + " joined Team 2!, Team 2 size: " + room.getTeam2Size());
     }
 
-    // =========================================================================
-    // WAITING STATE
-    // =========================================================================
 
     private void handleWaiting(String line) {
         String choice = line.startsWith("CHOICE:") ? line.substring(7).trim() : line.trim();
@@ -487,8 +503,17 @@ public class ClientHandler implements Runnable {
                 sendMessage("ERROR:You are not in a room.");
                 return;
             }
-            // Move all players to IN_GAME
-            for (ClientHandler p : currentRoom.getAllPlayers()) {
+            int team1Size = currentRoom.getTeam1Size();
+            int team2Size = currentRoom.getTeam2Size();
+            if (team2Size == 0) {
+                sendMessage("ERROR:Can't start, no one has joined team 2 yet.");
+                return;
+            }
+            if(team1Size != team2Size){
+                sendMessage("ERROR:teams aren't equal, team 1 has " + team1Size + " and team 2 has " + team2Size);
+                return;
+            }
+            for(ClientHandler p : currentRoom.getAllPlayers()){
                 p.state = STATE_IN_GAME;
             }
             currentRoom.startGame();
@@ -496,18 +521,18 @@ public class ClientHandler implements Runnable {
         } else if (choice.equalsIgnoreCase("LEAVE") || choice.equals("-")) {
             leaveRoom();
 
-        } else if (choice.equalsIgnoreCase("STATUS")) {
-            if (currentRoom != null) {
+        } else if (choice.equalsIgnoreCase("STATUS")){
+            if (currentRoom != null){
                 sendMessage("MSG:Room: " + currentRoom.getRoomName()
-                        + " | Team1: " + currentRoom.getTeam1Size()
-                        + " | Team2: " + currentRoom.getTeam2Size());
+                        + " | team1: " + currentRoom.getTeam1Size()
+                        + " | tam2: " + currentRoom.getTeam2Size());
             }
-        } else {
-            sendMessage("MSG:Waiting for the game to start.");
+        } else{
+            sendMessage("MSG:still waiting...");
             if (isTeamCreator) {
-                sendMessage("MSG:Type CHOICE:START to begin, CHOICE:STATUS to check players, or CHOICE:LEAVE to leave.");
+                sendMessage("MSG:type START to begin, STATUS to see who's here, or LEAVE to exit");
             } else {
-                sendMessage("MSG:Type CHOICE:LEAVE to leave the room.");
+                sendMessage("MSG:type LEAVE if you want to leave the room");
             }
         }
     }
@@ -528,31 +553,26 @@ public class ClientHandler implements Runnable {
         showMenu();
     }
 
-    // =========================================================================
-    // IN-GAME STATE
-    // =========================================================================
 
     private void handleInGame(String line) {
         if (line.toUpperCase().startsWith("ANSWER:")) {
             String answer = line.substring(7).trim();
             if (answer.isEmpty()) {
-                sendMessage("ERROR:Please provide an answer. Usage: ANSWER:<A/B/C/D>");
+                sendMessage("ERROR:Please provide an answer.");
                 return;
             }
             if (currentRoom != null && !currentRoom.isGameOver()) {
                 currentRoom.submitAnswer(currentUser.username, answer);
-                sendMessage("MSG:Your answer '" + answer.toUpperCase() + "' has been recorded.");
+                sendMessage("MSG:got your answer: " + answer.toUpperCase());
             } else {
                 sendMessage("MSG:Game is not active.");
             }
         } else {
-            sendMessage("MSG:Game in progress! Submit your answer with: ANSWER:<A/B/C/D>");
+            sendMessage("MSG:game is going on, answer with A, B, C or D");
         }
     }
 
-    /**
-     * Called by GameRoom after the game ends to return this client to the main menu.
-     */
+
     public void returnToMenu() {
         state = STATE_MENU;
         menuSub = MSUB_NONE;
@@ -562,25 +582,18 @@ public class ClientHandler implements Runnable {
         showMenu();
     }
 
-    // =========================================================================
-    // SCORES
-    // =========================================================================
 
     private void showScores() {
         if (currentUser == null) return;
         List<ScoreEntry> entries = scoreManager.getScores(currentUser.username);
         if (entries.isEmpty()) {
-            sendMessage("MSG:You have no scores recorded yet. Play a game to see your scores!");
+            sendMessage("MSG:no scores yet, play a game first!");
         } else {
             String json = gson.toJson(entries);
             sendMessage("SCORES:" + json);
         }
         showMenu();
     }
-
-    // =========================================================================
-    // CLEANUP
-    // =========================================================================
 
     public void cleanup() {
         if (currentRoom != null) {
@@ -597,7 +610,6 @@ public class ClientHandler implements Runnable {
                 socket.close();
             }
         } catch (IOException e) {
-            // ignore
         }
     }
 }

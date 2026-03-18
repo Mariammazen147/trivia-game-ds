@@ -9,6 +9,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
 
+
 public class UserManager {
     private final String filePath;
     private final Map<String, User> users = new HashMap<>();
@@ -42,41 +43,41 @@ public class UserManager {
         }
     }
 
-    /**
-     * Attempt to log in. Returns the User on success, null on failure.
-     */
-    public synchronized User login(String username, String password) {
-        User u = users.get(username);
-        if (u == null) return null;
-        String hashed = sha256(password);
-        if (hashed.equals(u.passwordHash)) {
-            return u;
-        }
-        return null;
-    }
 
-    /**
-     * Register a new user. Returns null on success, or an error message string on failure.
-     */
-    public synchronized String register(String name, String username, String password) {
-        if (users.containsKey(username)) {
+    public synchronized User login(String username, String password) {
+    User u = users.get(username);
+    if (u == null) {
+        throw new LoginException("404");
+    }
+    String hashed = sha256(password);
+    if (!hashed.equals(u.passwordHash)) {
+        throw new LoginException("401");
+    }
+    return u;
+}
+
+
+    public synchronized String register(String name, String username, String password){
+    if (username == null || username.trim().isEmpty()) {
+        return "Username cannot be empty.";
+    }
+    if (password == null || password.trim().isEmpty()) {
+        return "Password cannot be empty.";
+    }
+    for (String existing : users.keySet()) {
+        if (existing.equalsIgnoreCase(username.trim())) {
             return "Username already taken.";
         }
-        if (username == null || username.trim().isEmpty()) {
-            return "Username cannot be empty.";
-        }
-        if (password == null || password.trim().isEmpty()) {
-            return "Password cannot be empty.";
-        }
-        String hashed = sha256(password);
-        User u = new User(name, username, hashed);
-        users.put(username, u);
-        try {
-            saveUsers();
-        } catch (IOException e) {
-            return "Failed to save user data: " + e.getMessage();
-        }
-        return null; // success
+    }
+    String hashed = sha256(password);
+    User u = new User(name, username.trim(), hashed);
+    users.put(username.trim(), u);
+    try {
+        saveUsers();
+    } catch (IOException e) {
+        return "Could not save user: " + e.getMessage();
+    }
+    return null;
     }
 
     public synchronized User getUser(String username) {
@@ -94,6 +95,12 @@ public class UserManager {
             return sb.toString();
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException("SHA-256 not available", e);
+        }
+    }
+
+    public static class LoginException extends RuntimeException {//401, 404
+        public LoginException(String code) {
+            super(code);
         }
     }
 }
